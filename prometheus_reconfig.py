@@ -15,6 +15,7 @@ import logging
 from rest_tools.client import json_decode
 from rest_tools.server import RestServer, RestHandler
 from tornado.web import HTTPError
+from tornado.ioloop import IOLoop
 
 
 ### first, handle prometheus sd configs
@@ -111,9 +112,9 @@ def configs():
             'issuer': os.environ.get('AUTH_ISSUER', 'https://tokens.icecube.wisc.edu'),
             'algorithm': os.environ.get('AUTH_ALGORITHM', 'RS256'),
         },
-        'address': os.environ.get('ADDRESS', 'prometheus.icecube.wisc.edu'),
+        'address': os.environ.get('ADDRESS', 'localhost'),
         'port': int(os.environ.get('PORT', '8080')),
-        'loglevel': os.environ.get('LOGLEVEL', 'info'),
+        'loglevel': os.environ.get('LOGLEVEL', 'INFO'),
     }
     return config
 
