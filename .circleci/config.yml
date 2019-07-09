@@ -21,7 +21,7 @@ jobs:
                 python -m pytest --tb=short
     deploy:
         docker:
-            - image: circleci/buildpack-deps:stretch
+            - image: circleci/buildpack-deps:buster
               environment:
                 IMAGE_NAME: wipac/prometheus-reconfig
         steps:
