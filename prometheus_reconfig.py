@@ -126,7 +126,7 @@ def app(config):
 
 def main():
     config = configs()
-    logging.basicConfig(loglevel=config['loglevel'])
+    logging.basicConfig(level=config['loglevel'])
     server = app(config)
     server.startup(address=config['address'], port=config['port'])
     IOLoop.current().start()
