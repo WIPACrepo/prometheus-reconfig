@@ -14,7 +14,7 @@ RUN pip install --prefix=/install -r /requirements.txt
 FROM base as runtime
 
 COPY --from=builder /install /usr/local
-RUN ln -sT /usr/local /install
+COPY --from=builder /install /install
 
 RUN addgroup -S app && adduser -S -G app app
 USER app
