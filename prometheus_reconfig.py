@@ -83,7 +83,7 @@ class SingleConfig(MyHandler):
         ret = self.prom_configs[name].get()
         self.write({'targets':ret})
 
-    async def post(self, name):
+    async def put(self, name):
         if name not in self.prom_configs:
             raise HTTPError(404, reason='config not found')
         req = json_decode(self.request.body)
@@ -112,7 +112,7 @@ def configs():
             'issuer': os.environ.get('AUTH_ISSUER', 'https://tokens.icecube.wisc.edu'),
             'algorithm': os.environ.get('AUTH_ALGORITHM', 'RS256'),
         },
-        'address': os.environ.get('ADDRESS', 'localhost'),
+        'address': os.environ.get('ADDRESS', ''),
         'port': int(os.environ.get('PORT', '8080')),
         'loglevel': os.environ.get('LOGLEVEL', 'INFO'),
     }
@@ -122,7 +122,7 @@ def app(config):
     kwargs = {'prom_configs': config['prom_config']}
     server = RestServer(auth=config['auth'])
     server.add_route(r'/', AllConfigs, kwargs)
-    server.add_route(r'/(?P<name>\w+)', SingleConfig, kwargs)
+    server.add_route(r'/(?P<name>[^\?]+)', SingleConfig, kwargs)
     return server
 
 def main():
