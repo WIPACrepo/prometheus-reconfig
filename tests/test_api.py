@@ -83,7 +83,7 @@ async def test_one(config, rest):
         assert len(ret['targets']) == 0
 
         targets = ['foo:1234', 'bar:5678']
-        await r.request('POST', '/test', {'targets':targets})
+        await r.request('PUT', '/test', {'targets':targets})
         ret = await r.request('GET', '/test')
         assert ret['targets'] == targets
     else:
