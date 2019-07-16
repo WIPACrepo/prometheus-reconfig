@@ -13,7 +13,7 @@ import json
 import logging
 
 from rest_tools.client import json_decode
-from rest_tools.server import RestServer, RestHandler
+from rest_tools.server import RestServer, RestHandler, scope_role_auth
 from tornado.web import HTTPError
 from tornado.ioloop import IOLoop
 
@@ -64,12 +64,15 @@ class PromConfig:
 
 ### now do the http server
 
+role_auth = partial(scope_role_auth, perfix='prometheus-reconfig')
+
 class MyHandler(RestHandler):
     def initialize(self, prom_configs=None, **kwargs):
         super(MyHandler, self).initialize(**kwargs)
         self.prom_configs = prom_configs
 
 class AllConfigs(MyHandler):
+    @role_auth(roles=['read'])
     async def get(self):
         ret = {}
         for n in self.prom_configs:
@@ -77,12 +80,14 @@ class AllConfigs(MyHandler):
         self.write(ret)
 
 class SingleConfig(MyHandler):
+    @role_auth(roles=['read'])
     async def get(self, name):
         if name not in self.prom_configs:
             raise HTTPError(404, reason='config not found')
         ret = self.prom_configs[name].get()
         self.write({'targets':ret})
 
+    @role_auth(roles=['write'])
     async def put(self, name):
         if name not in self.prom_configs:
             raise HTTPError(404, reason='config not found')

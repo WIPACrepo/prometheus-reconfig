@@ -53,10 +53,10 @@ async def rest(monkeypatch, http_server_port):
     server = prometheus_reconfig.app(c)
     server.startup(port=http_server_port)
 
-    def client(role='admin', timeout=0.1):
+    def client(role='read', timeout=0.1):
         if CONFIG['AUTH_ISSUER']:
             r = requests.get(CONFIG['AUTH_ISSUER']+'/token',
-                             params={'scope': f'prometheus:{role}'})
+                             params={'scope': f'prometheus-reconfig:{role}'})
             r.raise_for_status()
             t = r.json()['access']
         else:
@@ -83,7 +83,8 @@ async def test_one(config, rest):
         assert len(ret['targets']) == 0
 
         targets = ['foo:1234', 'bar:5678']
-        await r.request('PUT', '/test', {'targets':targets})
+        r2 = rest('write')
+        await r2.request('PUT', '/test', {'targets':targets})
         ret = await r.request('GET', '/test')
         assert ret['targets'] == targets
     else:
