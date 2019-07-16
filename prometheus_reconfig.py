@@ -11,6 +11,7 @@ ENV Args:
 import os
 import json
 import logging
+from functools import partial
 
 from rest_tools.client import json_decode
 from rest_tools.server import RestServer, RestHandler, scope_role_auth
