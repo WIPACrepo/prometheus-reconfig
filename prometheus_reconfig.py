@@ -14,7 +14,7 @@ import logging
 from functools import partial
 
 from rest_tools.client import json_decode
-from rest_tools.server import RestServer, RestHandler, scope_role_auth
+from rest_tools.server import RestServer, RestHandler, RestHandlerSetup, scope_role_auth
 from tornado.web import HTTPError
 from tornado.ioloop import IOLoop
 
@@ -125,8 +125,9 @@ def configs():
     return config
 
 def app(config):
-    kwargs = {'prom_configs': config['prom_config']}
-    server = RestServer(auth=config['auth'])
+    kwargs = RestHandlerSetup(config)
+    kwargs.update({'prom_configs': config['prom_config']})
+    server = RestServer()
     server.add_route(r'/', AllConfigs, kwargs)
     server.add_route(r'/(?P<name>[^\?]+)', SingleConfig, kwargs)
     return server
