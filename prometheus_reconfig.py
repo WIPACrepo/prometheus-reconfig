@@ -116,7 +116,7 @@ def configs():
         'auth': {
             'secret': os.environ.get('AUTH_SECRET'),
             'issuer': os.environ.get('AUTH_ISSUER', 'https://tokens.icecube.wisc.edu'),
-            'algorithm': os.environ.get('AUTH_ALGORITHM', 'RS256'),
+            'algorithm': os.environ.get('AUTH_ALGORITHM', 'RS512'),
         },
         'address': os.environ.get('ADDRESS', ''),
         'port': int(os.environ.get('PORT', '8080')),
