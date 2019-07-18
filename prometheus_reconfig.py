@@ -65,7 +65,7 @@ class PromConfig:
 
 ### now do the http server
 
-role_auth = partial(scope_role_auth, perfix='prometheus-reconfig')
+role_auth = partial(scope_role_auth, prefix='prometheus-reconfig')
 
 class MyHandler(RestHandler):
     def initialize(self, prom_configs=None, **kwargs):
