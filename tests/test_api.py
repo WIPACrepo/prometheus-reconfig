@@ -1,4 +1,5 @@
 import os
+import json
 import asyncio
 
 import pytest
@@ -23,14 +24,25 @@ for k in CONFIG:
 @pytest.fixture(params=['', 'test'])
 def config(monkeypatch, request, tmp_path):
     name = request.param
+    cfgfile = str(tmp_path / 'prometheus_reconfig.json')
     filename = str(tmp_path / (name + '.json'))
     if name:
         with open(filename, 'w') as f:
             f.write('[]')
-        monkeypatch.setenv(f'PROMETHEUS_{name}_CONFIGFILE', filename)
+        with open(cfgfile, 'w') as f:
+            json.dump({
+              "services": [
+                {
+                    "name": name,
+                    "filename": filename,
+                    "labels": {},
+                }
+              ]
+            }, f)
+        monkeypatch.setenv(f'CONFIGFILE', cfgfile)
     yield name
     if name:
-        monkeypatch.delenv(f'PROMETHEUS_{name}_CONFIGFILE')
+        monkeypatch.delenv(f'CONFIGFILE')
 
 @pytest.fixture
 def http_server_port():

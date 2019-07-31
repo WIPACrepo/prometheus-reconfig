@@ -2,10 +2,21 @@
 Reconfigure prometheus SD configs via http.
 
 ENV Args:
-    PROMETHEUS_<name>_CONFIGFILE = <path to sd config file>
+    CONFIGFILE = path to prometheus_reconfig json file
     AUTH_SECRET = auth secret
     AUTH_ISSUER = auth issuer (default: IceCube token service)
     AUTH_ALGORITHM = auth algorithm (default: RS256)
+
+Config file format (json):
+{
+  "services": [
+    {
+        "name": <service name>,
+        "filename": <path to sd config file>,
+        "labels": { <dict of extra labels> }
+    }
+  ]
+}
 """
 
 import os
@@ -31,13 +42,15 @@ from tornado.ioloop import IOLoop
 
 
 class PromConfig:
-    def __init__(self, name, filename):
+    def __init__(self, name, filename, labels):
         if not os.path.exists(filename):
             raise Exception(f'file {filename} must exist')
         if not filename.endswith('.json'):
             raise Exception(f'file {filename} must be json')
         self.name = name
         self.filename = filename
+        self.labels = labels.copy()
+        self.labels['service'] = name
 
     def get(self):
         with open(self.filename) as f:
@@ -51,7 +64,7 @@ class PromConfig:
     def set(self, targets):
         data = [{
             'targets': targets,
-            'labels': {'service': self.name},
+            'labels': self.labels,
         }]
         with open(self.filename) as f:
             old_data = json.load(f)
@@ -65,7 +78,7 @@ class PromConfig:
     def add(self, targets):
         data = [{
             'targets': targets,
-            'labels': {'service': self.name},
+            'labels': self.labels,
         }]
         with open(self.filename) as f:
             old_data = json.load(f)
@@ -143,11 +156,12 @@ class SingleConfig(MyHandler):
 
 def configs():
     prom_configs = {}
-    for e in os.environ:
-        if e.startswith('PROMETHEUS_') and e.endswith('_CONFIGFILE'):
-            name = '_'.join(e.split('_')[1:-1])
-            filename = os.environ[e]
-            prom_configs[name] = PromConfig(name, filename)
+    cfgfile = os.environ.get('CONFIGFILE', '/etc/prometheus_reconfig.json')
+    try:
+        data = json.load(open(cfgfile))
+    except Exception:
+        data = {'services':[]}
+    prom_configs = {args['name']:PromConfig(**args) for args in data['services']}
     config = {
         'prom_config': prom_configs,
         'auth': {
