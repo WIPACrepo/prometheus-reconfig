@@ -87,6 +87,15 @@ async def test_one(config, rest):
         await r2.request('PUT', '/test', {'targets':targets})
         ret = await r.request('GET', '/test')
         assert ret['targets'] == targets
+
+        targets2 = ['baz:91011']
+        await r2.request('PATCH', '/test', {'targets':targets2})
+        ret = await r.request('GET', '/test')
+        assert ret['targets'] == targets2+targets
+
+        await r2.request('DELETE', '/test')
+        ret = await r.request('GET', '/test')
+        assert ret['targets'] == []
     else:
         with pytest.raises(requests.exceptions.HTTPError):
             ret = await r.request('GET', '/test')

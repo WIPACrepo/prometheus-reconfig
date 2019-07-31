@@ -62,6 +62,22 @@ class PromConfig:
         with open(self.filename, 'w') as f:
             json.dump(data, f)
 
+    def add(self, targets):
+        data = [{
+            'targets': targets,
+            'labels': {'service': self.name},
+        }]
+        with open(self.filename) as f:
+            old_data = json.load(f)
+        for s in old_data:
+            if s['labels']['service'] == self.name:
+                data[0]['targets'].extend(s['targets'])
+            else:
+                data.append(s)
+        logging.debug('set(%s) %r', self.filename, data)
+        with open(self.filename, 'w') as f:
+            json.dump(data, f)
+
 
 ### now do the http server
 
@@ -98,6 +114,27 @@ class SingleConfig(MyHandler):
         targets = req['targets']
         if not isinstance(targets, list):
             raise HTTPError(400, reason='"targets" param is not a list')
+        self.prom_configs[name].set(targets)
+        self.write({})
+
+    @role_auth(roles=['write'])
+    async def patch(self, name):
+        if name not in self.prom_configs:
+            raise HTTPError(404, reason='config not found')
+        req = json_decode(self.request.body)
+        if 'targets' not in req:
+            raise HTTPError(400, reason='missing "targets" param')
+        targets = req['targets']
+        if not isinstance(targets, list):
+            raise HTTPError(400, reason='"targets" param is not a list')
+        self.prom_configs[name].add(targets)
+        self.write({})
+
+    @role_auth(roles=['write'])
+    async def delete(self, name):
+        if name not in self.prom_configs:
+            raise HTTPError(404, reason='config not found')
+        targets = []
         self.prom_configs[name].set(targets)
         self.write({})
 
