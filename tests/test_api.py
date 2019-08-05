@@ -35,7 +35,6 @@ def config(monkeypatch, request, tmp_path):
                 {
                     "name": name,
                     "filename": filename,
-                    "labels": {},
                 }
               ]
             }, f)
@@ -101,9 +100,24 @@ async def test_one(config, rest):
         assert ret['targets'] == targets
 
         targets2 = ['baz:91011']
-        await r2.request('PATCH', '/test', {'targets':targets2})
+        await r2.request('PUT', '/test/comp1', {'targets':targets2})
         ret = await r.request('GET', '/test')
         assert ret['targets'] == targets2+targets
+        ret = await r.request('GET', '/test/comp1')
+        assert ret['targets'] == targets2
+
+        targets3 = ['wut:9675']
+        await r2.request('PATCH', '/test/comp1', {'targets':targets3})
+        ret = await r.request('GET', '/test')
+        assert ret['targets'] == targets3+targets2+targets
+        ret = await r.request('GET', '/test/comp1')
+        assert ret['targets'] == targets3+targets2
+
+        await r2.request('DELETE', '/test/comp1')
+        ret = await r.request('GET', '/test/comp1')
+        assert ret['targets'] == []
+        ret = await r.request('GET', '/test')
+        assert ret['targets'] == targets
 
         await r2.request('DELETE', '/test')
         ret = await r.request('GET', '/test')

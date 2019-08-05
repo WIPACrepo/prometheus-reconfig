@@ -12,8 +12,7 @@ Config file format (json):
   "services": [
     {
         "name": <service name>,
-        "filename": <path to sd config file>,
-        "labels": { <dict of extra labels> }
+        "filename": <path to sd config file>
     }
   ]
 }
@@ -35,37 +34,46 @@ from tornado.ioloop import IOLoop
 #     {
 #         "targets": [ "$HOSTNAME" ],
 #         "labels": {
-#             "service": "$SERVICENAME"
+#             "service": "$SERVICENAME",
+#             "component": "$COMPONENTNAME"
 #         },
 #     }
 # ]
 
 
 class PromConfig:
-    def __init__(self, name, filename, labels):
+    def __init__(self, name, filename):
         if not os.path.exists(filename):
             raise Exception(f'file {filename} must exist')
         if not filename.endswith('.json'):
             raise Exception(f'file {filename} must be json')
         self.name = name
         self.filename = filename
-        self.labels = labels.copy()
-        self.labels['service'] = name
 
-    def get(self):
+    def get(self, component=None):
+        targets = []
         with open(self.filename) as f:
             data = json.load(f)
             logging.debug('get(%s) %r', self.filename, data)
             for s in data:
                 if s['labels']['service'] == self.name:
-                    return s['targets']
-        return []
+                    if (component and s['labels'].get('component','') == component) or not component:
+                        targets.extend(s['targets'])
+        return targets
 
-    def set(self, targets):
-        data = [{
-            'targets': targets,
-            'labels': self.labels,
-        }]
+    def set_service(self, targets):
+        """
+        Overwrite targets for all components.
+        
+        Args:
+            targets (list): list of targets
+        """
+        data = []
+        if targets:
+            data.append({
+                'targets': targets,
+                'labels': {'service': self.name},
+            })
         with open(self.filename) as f:
             old_data = json.load(f)
         for s in old_data:
@@ -75,15 +83,45 @@ class PromConfig:
         with open(self.filename, 'w') as f:
             json.dump(data, f)
 
-    def add(self, targets):
+    def set_component(self, component, targets):
+        """
+        Overwrite targets for a single component.
+
+        Args:
+            component (str): name of component
+            targets (list): list of targets
+        """
+        data = []
+        if targets:
+            data.append({
+                'targets': targets,
+                'labels': {'service': self.name, 'component': component},
+            })
+        with open(self.filename) as f:
+            old_data = json.load(f)
+        for s in old_data:
+            if s['labels']['service'] != self.name or s['labels'].get('component','') != component:
+                data.append(s)
+        logging.debug('set(%s) %r', self.filename, data)
+        with open(self.filename, 'w') as f:
+            json.dump(data, f)
+
+    def add_component(self, component, targets):
+        """
+        Append to targets for a single component.
+
+        Args:
+            component (str): name of component
+            targets (list): list of targets
+        """
         data = [{
             'targets': targets,
-            'labels': self.labels,
+            'labels': {'service': self.name, 'component': component},
         }]
         with open(self.filename) as f:
             old_data = json.load(f)
         for s in old_data:
-            if s['labels']['service'] == self.name:
+            if s['labels']['service'] == self.name and s['labels'].get('component','') == component:
                 data[0]['targets'].extend(s['targets'])
             else:
                 data.append(s)
@@ -109,17 +147,17 @@ class AllConfigs(MyHandler):
             ret[n] = self.prom_configs[n].get()
         self.write(ret)
 
-class SingleConfig(MyHandler):
+class ServiceConfig(MyHandler):
     @role_auth(roles=['read'])
-    async def get(self, name):
-        if name not in self.prom_configs:
+    async def get(self, service):
+        if service not in self.prom_configs:
             raise HTTPError(404, reason='config not found')
-        ret = self.prom_configs[name].get()
+        ret = self.prom_configs[service].get()
         self.write({'targets':ret})
 
     @role_auth(roles=['write'])
-    async def put(self, name):
-        if name not in self.prom_configs:
+    async def put(self, service):
+        if service not in self.prom_configs:
             raise HTTPError(404, reason='config not found')
         req = json_decode(self.request.body)
         if 'targets' not in req:
@@ -127,28 +165,57 @@ class SingleConfig(MyHandler):
         targets = req['targets']
         if not isinstance(targets, list):
             raise HTTPError(400, reason='"targets" param is not a list')
-        self.prom_configs[name].set(targets)
+        self.prom_configs[service].set_service(targets)
         self.write({})
 
     @role_auth(roles=['write'])
-    async def patch(self, name):
-        if name not in self.prom_configs:
-            raise HTTPError(404, reason='config not found')
-        req = json_decode(self.request.body)
-        if 'targets' not in req:
-            raise HTTPError(400, reason='missing "targets" param')
-        targets = req['targets']
-        if not isinstance(targets, list):
-            raise HTTPError(400, reason='"targets" param is not a list')
-        self.prom_configs[name].add(targets)
-        self.write({})
-
-    @role_auth(roles=['write'])
-    async def delete(self, name):
-        if name not in self.prom_configs:
+    async def delete(self, service):
+        if service not in self.prom_configs:
             raise HTTPError(404, reason='config not found')
         targets = []
-        self.prom_configs[name].set(targets)
+        self.prom_configs[service].set_service(targets)
+        self.write({})
+
+class ComponentConfig(MyHandler):
+    @role_auth(roles=['read'])
+    async def get(self, service, component):
+        if service not in self.prom_configs:
+            raise HTTPError(404, reason='config not found')
+        ret = self.prom_configs[service].get(component)
+        self.write({'targets':ret})
+
+    @role_auth(roles=['write'])
+    async def put(self, service, component):
+        if service not in self.prom_configs:
+            raise HTTPError(404, reason='config not found')
+        req = json_decode(self.request.body)
+        if 'targets' not in req:
+            raise HTTPError(400, reason='missing "targets" param')
+        targets = req['targets']
+        if not isinstance(targets, list):
+            raise HTTPError(400, reason='"targets" param is not a list')
+        self.prom_configs[service].set_component(component, targets)
+        self.write({})
+
+    @role_auth(roles=['write'])
+    async def patch(self, service, component):
+        if service not in self.prom_configs:
+            raise HTTPError(404, reason='config not found')
+        req = json_decode(self.request.body)
+        if 'targets' not in req:
+            raise HTTPError(400, reason='missing "targets" param')
+        targets = req['targets']
+        if not isinstance(targets, list):
+            raise HTTPError(400, reason='"targets" param is not a list')
+        self.prom_configs[service].add_component(component, targets)
+        self.write({})
+
+    @role_auth(roles=['write'])
+    async def delete(self, service, component):
+        if service not in self.prom_configs:
+            raise HTTPError(404, reason='config not found')
+        targets = []
+        self.prom_configs[service].set_component(component, targets)
         self.write({})
 
 
@@ -180,7 +247,8 @@ def app(config):
     kwargs.update({'prom_configs': config['prom_config']})
     server = RestServer()
     server.add_route(r'/', AllConfigs, kwargs)
-    server.add_route(r'/(?P<name>[^\?]+)', SingleConfig, kwargs)
+    server.add_route(r'/(?P<service>\w+)', ServiceConfig, kwargs)
+    server.add_route(r'/(?P<service>\w+)/(?P<component>\w+)', ComponentConfig, kwargs)
     return server
 
 def main():
