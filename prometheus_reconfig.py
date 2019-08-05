@@ -246,7 +246,7 @@ def configs():
 def app(config):
     kwargs = RestHandlerSetup(config)
     kwargs.update({'prom_configs': config['prom_config']})
-    logging.info('services available:'
+    logging.info('services available:')
     for service in kwargs['prom_configs']:
         logging.info('   %s', service)
     server = RestServer()
