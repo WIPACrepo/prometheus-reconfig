@@ -227,6 +227,7 @@ def configs():
     try:
         data = json.load(open(cfgfile))
     except Exception:
+        print('could not open cfgfile at', cfgfile)
         data = {'services':[]}
     prom_configs = {args['name']:PromConfig(**args) for args in data['services']}
     config = {
@@ -245,6 +246,9 @@ def configs():
 def app(config):
     kwargs = RestHandlerSetup(config)
     kwargs.update({'prom_configs': config['prom_config']})
+    logging.info('services available:'
+    for service in kwargs['prom_configs']:
+        logging.info('   %s', service)
     server = RestServer()
     server.add_route(r'/', AllConfigs, kwargs)
     server.add_route(r'/(?P<service>\w+)', ServiceConfig, kwargs)
