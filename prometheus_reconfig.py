@@ -251,8 +251,8 @@ def app(config):
         logging.info('   %s', service)
     server = RestServer()
     server.add_route(r'/', AllConfigs, kwargs)
-    server.add_route(r'/(?P<service>\w+)', ServiceConfig, kwargs)
-    server.add_route(r'/(?P<service>\w+)/(?P<component>\w+)', ComponentConfig, kwargs)
+    server.add_route(r'/(?P<service>[\w\-]+)', ServiceConfig, kwargs)
+    server.add_route(r'/(?P<service>[\w\-]+)/(?P<component>[\w\-]+)', ComponentConfig, kwargs)
     return server
 
 def main():
