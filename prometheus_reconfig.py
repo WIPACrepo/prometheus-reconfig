@@ -138,6 +138,20 @@ class MyHandler(RestHandler):
     def initialize(self, prom_configs=None, **kwargs):
         super(MyHandler, self).initialize(**kwargs)
         self.prom_configs = prom_configs
+        if self.auth:
+            logging.info('auth is enabled')
+        else:
+            logging.warning("auth is disabled!")
+
+    def get_current_user(self):
+        if self.auth:
+            return super(MyHandler, self).get_current_user()
+        else:
+            self.auth_data = {
+                'scope': 'prometheus-reconfig:read prometheus-reconfig:write'
+            }
+            self.auth_key = 'anonymous'
+            return 'anonymous'
 
 class AllConfigs(MyHandler):
     @role_auth(roles=['read'])
@@ -232,15 +246,18 @@ def configs():
     prom_configs = {args['name']:PromConfig(**args) for args in data['services']}
     config = {
         'prom_config': prom_configs,
-        'auth': {
-            'secret': os.environ.get('AUTH_SECRET'),
-            'issuer': os.environ.get('AUTH_ISSUER', 'https://tokens.icecube.wisc.edu'),
-            'algorithm': os.environ.get('AUTH_ALGORITHM', 'RS512'),
-        },
         'address': os.environ.get('ADDRESS', ''),
         'port': int(os.environ.get('PORT', '8080')),
         'loglevel': os.environ.get('LOGLEVEL', 'INFO'),
     }
+    if 'AUTH_SECRET' in os.environ and os.environ['AUTH_SECRET']:
+        config.update({
+            'auth': {
+                'secret': os.environ['AUTH_SECRET'],
+                'issuer': os.environ.get('AUTH_ISSUER', 'https://tokens.icecube.wisc.edu'),
+                'algorithm': os.environ.get('AUTH_ALGORITHM', 'RS512'),
+            },
+        })
     return config
 
 def app(config):
